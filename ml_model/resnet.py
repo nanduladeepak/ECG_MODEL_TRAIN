@@ -54,111 +54,38 @@ def reduce_max_expand(x):
     return tf.expand_dims(tf.reduce_max(x, axis=-1), axis=-1)
 
 
-def resnet(x, blocks_per_layer, num_classes=1000):
+def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     # x = layers.ZeroPadding2D(padding=3, name='conv1_pad')(x)
     x = layers.Conv2D(filters=64, kernel_size=(12, 5), strides=5, use_bias=False, kernel_initializer=kaiming_normal, name='conv1')(x)
     x = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name='bn1')(x)
     x = layers.ReLU(name='relu1')(x)
     
     # channel attention
+    channel_heads = []
 
-    # Head 1
-    ## Shared layers
-    l1_h1 = layers.Dense(8, activation="relu", use_bias=False)
-    l2_h1 = layers.Dense(64, use_bias=False)
+    for i in range(num_heads):
+        # Heads
+        ## Shared layers
+        l1_h = layers.Dense(8, activation="relu", use_bias=False)
+        l2_h = layers.Dense(64, use_bias=False)
 
-    ## Global Average Pooling
-    x1_h1 = layers.GlobalAveragePooling2D()(x)
-    x1_h1 = l1_h1(x1_h1)
-    x1_h1 = l2_h1(x1_h1)
+        ## Global Average Pooling
+        x1_h = layers.GlobalAveragePooling2D()(x)
+        x1_h = l1_h(x1_h)
+        x1_h = l2_h(x1_h)
 
-    ## Global Max Pooling
-    x2_h1 = layers.GlobalMaxPooling2D()(x)
-    x2_h1 = l1_h1(x2_h1)
-    x2_h1 = l2_h1(x2_h1)
+        ## Global Max Pooling
+        x2_h = layers.GlobalMaxPooling2D()(x)
+        x2_h = l1_h(x2_h)
+        x2_h = l2_h(x2_h)
 
-    ## Add both the features and pass through sigmoid
-    feats_h1 = layers.Add()([x1_h1, x2_h1])
-    feats_h1 = layers.Activation("sigmoid")(feats_h1)
-
-    # Head 2
-    ## Shared layers
-    l1_h2 = layers.Dense(8, activation="relu", use_bias=False)
-    l2_h2 = layers.Dense(64, use_bias=False)
-
-    ## Global Average Pooling
-    x1_h2 = layers.GlobalAveragePooling2D()(x)
-    x1_h2 = l1_h2(x1_h2)
-    x1_h2 = l2_h2(x1_h2)
-
-    ## Global Max Pooling
-    x2_h2 = layers.GlobalMaxPooling2D()(x)
-    x2_h2 = l1_h2(x2_h2)
-    x2_h2 = l2_h2(x2_h2)
-
-    ## Add both the features and pass through sigmoid
-    feats_h2 = layers.Add()([x1_h2, x2_h2])
-    feats_h2 = layers.Activation("sigmoid")(feats_h2)
-
-    # Head 3
-    ## Shared layers
-    l1_h3 = layers.Dense(8, activation="relu", use_bias=False)
-    l2_h3 = layers.Dense(64, use_bias=False)
-
-    ## Global Average Pooling
-    x1_h3 = layers.GlobalAveragePooling2D()(x)
-    x1_h3 = l1_h3(x1_h3)
-    x1_h3 = l2_h3(x1_h3)
-
-    ## Global Max Pooling
-    x2_h3 = layers.GlobalMaxPooling2D()(x)
-    x2_h3 = l1_h3(x2_h3)
-    x2_h3 = l2_h3(x2_h3)
-
-    ## Add both the features and pass through sigmoid
-    feats_h3 = layers.Add()([x1_h3, x2_h3])
-    feats_h3 = layers.Activation("sigmoid")(feats_h3)
-
-    # Head 4
-    ## Shared layers
-    l1_h4 = layers.Dense(8, activation="relu", use_bias=False)
-    l2_h4 = layers.Dense(64, use_bias=False)
-
-    ## Global Average Pooling
-    x1_h4 = layers.GlobalAveragePooling2D()(x)
-    x1_h4 = l1_h4(x1_h4)
-    x1_h4 = l2_h4(x1_h4)
-
-    ## Global Max Pooling
-    x2_h4 = layers.GlobalMaxPooling2D()(x)
-    x2_h4 = l1_h4(x2_h4)
-    x2_h4 = l2_h4(x2_h4)
-
-    ## Add both the features and pass through sigmoid
-    feats_h4 = layers.Add()([x1_h4, x2_h4])
-    feats_h4 = layers.Activation("sigmoid")(feats_h4)
-
-    # Head 5
-    ## Shared layers
-    l1_h5 = layers.Dense(8, activation="relu", use_bias=False)
-    l2_h5 = layers.Dense(64, use_bias=False)
-
-    ## Global Average Pooling
-    x1_h5 = layers.GlobalAveragePooling2D()(x)
-    x1_h5 = l1_h5(x1_h5)
-    x1_h5 = l2_h5(x1_h5)
-
-    ## Global Max Pooling
-    x2_h5 = layers.GlobalMaxPooling2D()(x)
-    x2_h5 = l1_h5(x2_h5)
-    x2_h5 = l2_h5(x2_h5)
-
-    ## Add both the features and pass through sigmoid
-    feats_h5 = layers.Add()([x1_h5, x2_h5])
-    feats_h5 = layers.Activation("sigmoid")(feats_h5)
+        ## Add both the features and pass through sigmoid
+        feats_h = layers.Add()([x1_h, x2_h])
+        feats_h = layers.Activation("sigmoid")(feats_h)
+        channel_heads.append(feats_h)
 
      ## Concatenat all the features
-    feats = layers.Concatenate()([feats_h1, feats_h2, feats_h3, feats_h4, feats_h5])
+    feats = layers.Concatenate()(channel_heads)
     ## Conv layer
     feats = layers.Conv2D(64, kernel_size=7, padding="same", activation="sigmoid")(feats)
     feats = layers.Reshape((1, 1, 64))(feats)
@@ -166,74 +93,25 @@ def resnet(x, blocks_per_layer, num_classes=1000):
     x = layers.Multiply()([x, feats])
     
     # spatial attention
+    spacial_heads = []
 
-    # Head 1
-    ## Average Pooling
-    x1_h1 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h1')(x)
+    for i in range(num_heads):
+        # Heads
+        ## Average Pooling
+        x1_h = layers.Lambda(reduce_mean_expand)(x)
 
-    ## Max Pooling
-    x2_h1 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h1')(x)
-
-
-    ## Concatenat both the features
-    feats_h1 = layers.Concatenate()([x1_h1, x2_h1])
-    ## Conv layer
-    feats_h1 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h1)
-
-    # Head 2
-    ## Average Pooling
-    x1_h2 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h2')(x)
-
-    ## Max Pooling
-    x2_h2 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h2')(x)
+        ## Max Pooling
+        x2_h = layers.Lambda(reduce_max_expand)(x)
 
 
-    ## Concatenat both the features
-    feats_h2 = layers.Concatenate()([x1_h2, x2_h2])
-    ## Conv layer
-    feats_h2 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h2)
-
-    # Head 3
-    ## Average Pooling
-    x1_h3 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h3')(x)
-
-    ## Max Pooling
-    x2_h3 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h3')(x)
-
-
-    ## Concatenat both the features
-    feats_h3 = layers.Concatenate()([x1_h3, x2_h3])
-    ## Conv layer
-    feats_h3 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h3)
-
-    # Head 4
-    ## Average Pooling
-    x1_h4 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h4')(x)
-
-    ## Max Pooling
-    x2_h4 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h4')(x)
-
-
-    ## Concatenat both the features
-    feats_h4 = layers.Concatenate()([x1_h4, x2_h4])
-    ## Conv layer
-    feats_h4 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h4)
-
-    # Head 5
-    ## Average Pooling
-    x1_h5 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h5')(x)
-
-    ## Max Pooling
-    x2_h5 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h5')(x)
-
-
-    ## Concatenat both the features
-    feats_h5 = layers.Concatenate()([x1_h5, x2_h5])
-    ## Conv layer
-    feats_h5 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h5)
+        ## Concatenat both the features
+        feats_h = layers.Concatenate()([x1_h, x2_h])
+        ## Conv layer
+        feats_h = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h)
+        spacial_heads.append(feats_h)
 
     ## Concatenat all the features
-    feats = layers.Concatenate()([feats_h1, feats_h2, feats_h3, feats_h4, feats_h5])
+    feats = layers.Concatenate()(spacial_heads)
     ## Conv layer
     feats = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats)
 
