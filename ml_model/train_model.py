@@ -9,7 +9,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 from f1_metric import F1Score
 
 class TrainModel:
-    def __init__(self, batch=32, model_type='resnet18', epoch = 40, filter= False, poles=5, upperCutoff = 15):
+    def __init__(self, batch=32, model_type='resnet18', epoch = 40, filter= False, poles=5, upperCutoff = 15, att_heads=5):
+        self.att_heads = att_heads
         self.classes = ['NORM','MI','STTC','HYP','CD']
         self.epoch = epoch
         self.batch = batch
@@ -36,7 +37,7 @@ class TrainModel:
 
     def __load_model(self):
         inputs = keras.Input(batch_size=self.batch, shape=(12,1000,1))
-        outputs = self.model_type(inputs, num_classes=5)
+        outputs = self.model_type(inputs, num_classes=5, num_heads = self.att_heads)
         self.model = keras.Model(inputs, outputs)
 
     def train_model(self):

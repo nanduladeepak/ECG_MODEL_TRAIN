@@ -87,7 +87,8 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
      ## Concatenat all the features
     feats = layers.Concatenate()(channel_heads)
     ## Conv layer
-    feats = layers.Conv2D(64, kernel_size=7, padding="same", activation="sigmoid")(feats)
+    feats = layers.Reshape((1, 1, -1))(feats)
+    feats = layers.Dense(64, activation="sigmoid")(feats)
     feats = layers.Reshape((1, 1, 64))(feats)
 
     x = layers.Multiply()([x, feats])
