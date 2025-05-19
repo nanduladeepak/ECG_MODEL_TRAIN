@@ -44,7 +44,7 @@ class TrainModel:
         callbacks_list = [
                 keras.callbacks.EarlyStopping(
                     monitor='val_cat_acc',
-                    patience=20,
+                    patience=30,
                     mode='max',
                     restore_best_weights=True,
                     verbose=1),
