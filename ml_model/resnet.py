@@ -88,8 +88,8 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     feats = layers.Concatenate()(channel_heads)
     ## Conv layer
     feats = layers.Reshape((1, 1, -1))(feats)
-    feats = layers.Dense(64, activation="sigmoid")(feats)
-    feats = layers.Reshape((1, 1, 64))(feats)
+    feats = layers.Dense(128, activation="sigmoid")(feats)
+    feats = layers.Reshape((1, 1, 128))(feats)
 
     x = layers.Multiply()([x, feats])
     
@@ -154,8 +154,8 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     feats = layers.Concatenate()(channel_heads)
     ## Conv layer
     feats = layers.Reshape((1, 1, -1))(feats)
-    feats = layers.Dense(512, activation="sigmoid")(feats)
-    feats = layers.Reshape((1, 1, 512))(feats)
+    feats = layers.Dense(1024, activation="sigmoid")(feats)
+    feats = layers.Reshape((1, 1, 1024))(feats)
 
     x = layers.Multiply()([x, feats])
     

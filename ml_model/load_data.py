@@ -24,7 +24,7 @@ def highpass_scipy(data: np.ndarray, cutoff: float, sample_rate: float, poles: i
 
 
 
-def butter_bandpass_filter(signal, lowcut=0.5, highcut=50.0, fs=500.0, order=5):
+def butter_bandpass_filter(data: np.ndarray, lowcut:float=0.5, highcut:float=50.0, fs:float=500.0, order:int=5):
     """
     Applies a Butterworth bandpass filter to the input signal.
 
@@ -48,7 +48,7 @@ def butter_bandpass_filter(signal, lowcut=0.5, highcut=50.0, fs=500.0, order=5):
     low = lowcut / nyq
     high = highcut / nyq
     sos = signal.butter(order, [low, high], btype='band', output='sos')
-    filtered_signal = signal.sosfiltfilt(sos, signal)
+    filtered_signal = signal.sosfiltfilt(sos, data)
     return filtered_signal
 
 class DataLoader:
