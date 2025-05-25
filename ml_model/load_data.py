@@ -202,6 +202,43 @@ class DataLoader:
         self.y_sub_train = train_df[self.target_sub_columns].values
         self.y_sub_test = test_df[self.target_sub_columns].values
         self.y_sub_val = val_df[self.target_sub_columns].values
+
+    def fft_signal_data(self):
+        print(f'FFT step data 1/6 flt_train')
+        for i, dp in tqdm(enumerate(self.X_flt_train)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.X_flt_train[i] = np.concatenate((dp,fft_results), axis=0)
+
+        print(f'FFT step data 2/6 flt_test')
+        for i, dp in tqdm(enumerate(self.X_flt_test)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.X_flt_test[i] = np.concatenate((dp,fft_results), axis=0)
+            
+        print(f'FFT step data 3/6 flt_val')
+        for i, dp in tqdm(enumerate(self.X_flt_val)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.X_flt_val[i] = np.concatenate((dp,fft_results), axis=0)
+            
+        print(f'FFT step data 4/6 train')
+        for i, dp in tqdm(enumerate(self.y_train)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.y_train[i] = np.concatenate((dp,fft_results), axis=0)
+            
+        print(f'FFT step data 5/6 test')
+        for i, dp in tqdm(enumerate(self.y_test)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.y_test[i] = np.concatenate((dp,fft_results), axis=0)
+            
+        print(f'FFT step data 6/6 val')
+        for i, dp in tqdm(enumerate(self.y_val)):
+            fft_results = [np.fft.fft(sig) for sig in dp]
+            fft_results = np.array(fft_results)
+            self.y_val[i] = np.concatenate((dp,fft_results), axis=0)
     
     def main(self):
         self.__load_data()
@@ -210,6 +247,7 @@ class DataLoader:
         self.__preprocess_raw_data()
         self.__final_df()
         self.__prepare_df_to_train()
+        self.fft_signal_data()
 
     def get_in(self):
         return self.X_train, self.X_test, self.X_val

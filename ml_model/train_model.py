@@ -37,7 +37,7 @@ class TrainModel:
         self.history = None
 
     def __load_model(self):
-        inputs = keras.Input(batch_size=self.batch, shape=(12,1000,1))
+        inputs = keras.Input(batch_size=self.batch, shape=(24,1000,1))
         outputs = self.model_type(inputs, num_classes=5, num_heads = self.att_heads)
         self.model = keras.Model(inputs, outputs)
 
