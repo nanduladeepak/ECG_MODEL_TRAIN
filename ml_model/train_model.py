@@ -9,7 +9,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 from f1_metric import F1Score
 
 class TrainModel:
-    def __init__(self, batch=32, model_type='resnet18', epoch = 40, filter= False, poles=5, upperCutoff = 15, att_heads=5):
+    def __init__(self, batch=32, model_type='resnet18', epoch = 40, filter= False, poles=5, upperCutoff = 15, att_heads=5, stop_percistance = 30):
+        self.stop_percistance = stop_percistance
         self.att_heads = att_heads
         self.classes = ['NORM','MI','STTC','HYP','CD']
         self.epoch = epoch
@@ -44,7 +45,7 @@ class TrainModel:
         callbacks_list = [
                 keras.callbacks.EarlyStopping(
                     monitor='val_cat_acc',
-                    patience=30,
+                    patience= self.stop_percistance,
                     mode='max',
                     restore_best_weights=True,
                     verbose=1),

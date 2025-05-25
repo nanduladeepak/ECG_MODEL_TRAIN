@@ -23,6 +23,34 @@ def highpass_scipy(data: np.ndarray, cutoff: float, sample_rate: float, poles: i
     return filtered_data
 
 
+
+def butter_bandpass_filter(signal, lowcut=0.5, highcut=50.0, fs=500.0, order=5):
+    """
+    Applies a Butterworth bandpass filter to the input signal.
+
+    Parameters:
+    - signal: np.ndarray
+        The ECG signal to be filtered.
+    - lowcut: float
+        The lower cutoff frequency of the filter in Hz.
+    - highcut: float
+        The upper cutoff frequency of the filter in Hz.
+    - fs: float
+        The sampling frequency of the signal in Hz.
+    - order: int
+        The order of the Butterworth filter.
+
+    Returns:
+    - filtered_signal: np.ndarray
+        The bandpass-filtered ECG signal.
+    """
+    nyq = 0.5 * fs  # Nyquist Frequency
+    low = lowcut / nyq
+    high = highcut / nyq
+    sos = signal.butter(order, [low, high], btype='band', output='sos')
+    filtered_signal = signal.sosfiltfilt(sos, signal)
+    return filtered_signal
+
 class DataLoader:
     def __init__(self, path= './ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/', sampling_rate=100, poles=5, upperCutoff = 15):
         self.poles = poles
@@ -163,9 +191,9 @@ class DataLoader:
         self.X_val = np.expand_dims(np.array(val_df['ecg_heads'].tolist()), -1)
 
         
-        self.X_flt_train = lowpass_scipy(highpass_scipy(np.array(train_df['ecg_heads'].tolist()), 1 , self.sampling_rate, self.poles) ,self.upperCutoff, self.sampling_rate, self.poles)
-        self.X_flt_test = lowpass_scipy(highpass_scipy(np.array(test_df['ecg_heads'].tolist()), 1 , self.sampling_rate, self.poles) ,self.upperCutoff, self.sampling_rate, self.poles)
-        self.X_flt_val = lowpass_scipy(highpass_scipy(np.array(val_df['ecg_heads'].tolist()), 1 , self.sampling_rate, self.poles) ,self.upperCutoff, self.sampling_rate, self.poles)
+        self.X_flt_train = butter_bandpass_filter(np.array(train_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
+        self.X_flt_test = butter_bandpass_filter(np.array(test_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
+        self.X_flt_val = butter_bandpass_filter(np.array(val_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
 
         self.y_train = train_df[self.target_columns].values
         self.y_test = test_df[self.target_columns].values

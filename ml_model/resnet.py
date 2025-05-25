@@ -56,7 +56,7 @@ def reduce_max_expand(x):
 
 def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     # x = layers.ZeroPadding2D(padding=3, name='conv1_pad')(x)
-    x = layers.Conv2D(filters=64, kernel_size=(12, 5), strides=5, use_bias=False, kernel_initializer=kaiming_normal, name='conv1')(x)
+    x = layers.Conv2D(filters=128, kernel_size=(1, 5), strides=(1, 5), use_bias=False, kernel_initializer=kaiming_normal, name='conv1')(x)
     x = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name='bn1')(x)
     x = layers.ReLU(name='relu1')(x)
     
@@ -66,8 +66,8 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     for i in range(num_heads):
         # Heads
         ## Shared layers
-        l1_h = layers.Dense(8, activation="relu", use_bias=False)
-        l2_h = layers.Dense(64, use_bias=False)
+        l1_h = layers.Dense(64, activation="relu", use_bias=False)
+        l2_h = layers.Dense(128, use_bias=False)
 
         ## Global Average Pooling
         x1_h = layers.GlobalAveragePooling2D()(x)
@@ -119,10 +119,10 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     x = layers.Multiply()([x, feats])
 
 
-    x = make_layer(x, 64, blocks_per_layer[0], name='layer1')
-    x = make_layer(x, 128, blocks_per_layer[1], stride=2, name='layer2')
-    x = make_layer(x, 256, blocks_per_layer[2], stride=2, name='layer3')
-    x = make_layer(x, 512, blocks_per_layer[3], stride=2, name='layer4')
+    x = make_layer(x, 128, blocks_per_layer[0], name='layer1')
+    x = make_layer(x, 256, blocks_per_layer[1], stride=2, name='layer2')
+    x = make_layer(x, 512, blocks_per_layer[2], stride=2, name='layer3')
+    x = make_layer(x, 1024, blocks_per_layer[3], stride=2, name='layer4')
 
     
     
@@ -132,8 +132,8 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     for i in range(num_heads):
         # Heads
         ## Shared layers
-        l1_h = layers.Dense(256, activation="relu", use_bias=False)
-        l2_h = layers.Dense(512, use_bias=False)
+        l1_h = layers.Dense(512, activation="relu", use_bias=False)
+        l2_h = layers.Dense(1024, use_bias=False)
 
         ## Global Average Pooling
         x1_h = layers.GlobalAveragePooling2D()(x)
