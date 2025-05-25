@@ -9,7 +9,7 @@ from sklearn.metrics import classification_report, confusion_matrix
 from f1_metric import F1Score
 
 class TrainModel:
-    def __init__(self, batch=32, model_type='resnet18', epoch = 40, filter= False, poles=5, upperCutoff = 15, att_heads=5, stop_percistance = 30):
+    def __init__(self, batch=32, model_type='resnet18', epoch = 40, poles=5, upperCutoff = 15, att_heads=5, stop_percistance = 30):
         self.stop_percistance = stop_percistance
         self.att_heads = att_heads
         self.classes = ['NORM','MI','STTC','HYP','CD']
@@ -31,7 +31,7 @@ class TrainModel:
         self.data = DataLoader(poles=poles, upperCutoff = upperCutoff)
         self.model = None
         self.__load_model()
-        self.X_train, self.X_test, self.X_val = self.data.get_flt_in() if filter== True else self.data.get_in()
+        self.X_train, self.X_test, self.X_val = self.data.get_flt_in()
         self.y_train, self.y_test, self.y_val = self.data.get_class_out()
         self.model_checkpoint = None
         self.history = None
