@@ -5,6 +5,7 @@ import wfdb
 from tqdm import tqdm
 import ast
 from scipy import signal
+import tensorflow as tf
 
 # import cv2
 # from skimage.morphology import skeletonize
@@ -28,7 +29,7 @@ def fft_signal_data(data_bulk):
         fft_results = [np.fft.fft(sig) for sig in dp]
         fft_results = np.array(fft_results)
         updated_flt_train.append(np.concatenate((dp, fft_results), axis=0))
-    return np.array(updated_flt_train)
+    return tf.convert_to_tensor(np.array(updated_flt_train), dtype=tf.float32)
 
 def butter_bandpass_filter(data: np.ndarray, lowcut:float=0.5, highcut:float=50.0, fs:float=500.0, order:int=5):
     """
@@ -58,7 +59,8 @@ def butter_bandpass_filter(data: np.ndarray, lowcut:float=0.5, highcut:float=50.
     return filtered_signal
 
 class DataLoader:
-    def __init__(self, path= './ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/', sampling_rate=100, poles=5, upperCutoff = 15):
+    def __init__(self, path= './ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/', sampling_rate=100, poles=5, upperCutoff = 15, fft = False):
+        self.fft = fft
         self.poles = poles
         self.upperCutoff = upperCutoff
         self.path = path
@@ -235,7 +237,8 @@ class DataLoader:
         self.__preprocess_raw_data()
         self.__final_df()
         self.__prepare_df_to_train()
-        self.fft_signal_all()
+        if self.fft:
+            self.fft_signal_all()
 
     # def get_in(self):
     #     return self.X_train, self.X_test, self.X_val
