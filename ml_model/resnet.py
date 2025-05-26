@@ -2,8 +2,8 @@
 import math
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
-from tensorflow.keras.saving import register_keras_serializable
+from tensorflow.keras import layers # type: ignore
+from tensorflow.keras.saving import register_keras_serializable  # type: ignore
 
 kaiming_normal = keras.initializers.VarianceScaling(scale=2.0, mode='fan_out', distribution='untruncated_normal')
 
@@ -61,62 +61,42 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     x = layers.ReLU(name='relu1')(x)
     
     # channel attention
-    channel_heads = []
 
-    for i in range(num_heads):
-        # Heads
-        ## Shared layers
-        l1_h = layers.Dense(32, activation="relu", use_bias=False)
-        l2_h = layers.Dense(64, use_bias=False)
+    # Head 1
+    ## Shared layers
+    l1_h1 = layers.Dense(32, activation="relu", use_bias=False)
+    l2_h1 = layers.Dense(64, use_bias=False)
 
-        ## Global Average Pooling
-        x1_h = layers.GlobalAveragePooling2D()(x)
-        x1_h = l1_h(x1_h)
-        x1_h = l2_h(x1_h)
+    ## Global Average Pooling
+    x1_h1 = layers.GlobalAveragePooling2D()(x)
+    x1_h1 = l1_h1(x1_h1)
+    x1_h1 = l2_h1(x1_h1)
 
-        ## Global Max Pooling
-        x2_h = layers.GlobalMaxPooling2D()(x)
-        x2_h = l1_h(x2_h)
-        x2_h = l2_h(x2_h)
+    ## Global Max Pooling
+    x2_h1 = layers.GlobalMaxPooling2D()(x)
+    x2_h1 = l1_h1(x2_h1)
+    x2_h1 = l2_h1(x2_h1)
 
-        ## Add both the features and pass through sigmoid
-        feats_h = layers.Add()([x1_h, x2_h])
-        feats_h = layers.Activation("sigmoid")(feats_h)
-        channel_heads.append(feats_h)
+    ## Add both the features and pass through sigmoid
+    feats_h1 = layers.Add()([x1_h1, x2_h1])
+    feats_h1 = layers.Activation("sigmoid")(feats_h1)
 
-     ## Concatenat all the features
-    feats = layers.Concatenate()(channel_heads)
-    ## Conv layer
-    feats = layers.Reshape((1, 1, -1))(feats)
-    feats = layers.Dense(64, activation="sigmoid")(feats)
-    feats = layers.Reshape((1, 1, 64))(feats)
 
-    x = layers.Multiply()([x, feats])
+    x = layers.Multiply()([x, feats_h1])
     
     # spatial attention
-    spacial_heads = []
+    ## Average Pooling
+    x1_h1 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h1')(x)
 
-    for i in range(num_heads):
-        # Heads
-        ## Average Pooling
-        x1_h = layers.Lambda(reduce_mean_expand)(x)
-
-        ## Max Pooling
-        x2_h = layers.Lambda(reduce_max_expand)(x)
+    ## Max Pooling
+    x2_h1 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h1')(x)
 
 
-        ## Concatenat both the features
-        feats_h = layers.Concatenate()([x1_h, x2_h])
-        ## Conv layer
-        feats_h = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h)
-        spacial_heads.append(feats_h)
-
-    ## Concatenat all the features
-    feats = layers.Concatenate()(spacial_heads)
+    ## Concatenat both the features
+    feats_h1 = layers.Concatenate()([x1_h1, x2_h1])
     ## Conv layer
-    feats = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats)
-
-    x = layers.Multiply()([x, feats])
+    feats_h1 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h1)
+    x = layers.Multiply()([x, feats_h1])
 
 
     x = make_layer(x, 64, blocks_per_layer[0], name='layer1')
@@ -127,62 +107,39 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     
     
     # channel attention
-    channel_heads = []
+    ## Shared layers
+    l1_h1 = layers.Dense(256, activation="relu", use_bias=False)
+    l2_h1 = layers.Dense(512, use_bias=False)
 
-    for i in range(num_heads):
-        # Heads
-        ## Shared layers
-        l1_h = layers.Dense(256, activation="relu", use_bias=False)
-        l2_h = layers.Dense(512, use_bias=False)
+    ## Global Average Pooling
+    x1_h1 = layers.GlobalAveragePooling2D()(x)
+    x1_h1 = l1_h1(x1_h1)
+    x1_h1 = l2_h1(x1_h1)
 
-        ## Global Average Pooling
-        x1_h = layers.GlobalAveragePooling2D()(x)
-        x1_h = l1_h(x1_h)
-        x1_h = l2_h(x1_h)
+    ## Global Max Pooling
+    x2_h1 = layers.GlobalMaxPooling2D()(x)
+    x2_h1 = l1_h1(x2_h1)
+    x2_h1 = l2_h1(x2_h1)
 
-        ## Global Max Pooling
-        x2_h = layers.GlobalMaxPooling2D()(x)
-        x2_h = l1_h(x2_h)
-        x2_h = l2_h(x2_h)
+    ## Add both the features and pass through sigmoid
+    feats_h1 = layers.Add()([x1_h1, x2_h1])
+    feats_h1 = layers.Activation("sigmoid")(feats_h1)
 
-        ## Add both the features and pass through sigmoid
-        feats_h = layers.Add()([x1_h, x2_h])
-        feats_h = layers.Activation("sigmoid")(feats_h)
-        channel_heads.append(feats_h)
 
-     ## Concatenat all the features
-    feats = layers.Concatenate()(channel_heads)
-    ## Conv layer
-    feats = layers.Reshape((1, 1, -1))(feats)
-    feats = layers.Dense(512, activation="sigmoid")(feats)
-    feats = layers.Reshape((1, 1, 512))(feats)
-
-    x = layers.Multiply()([x, feats])
+    x = layers.Multiply()([x, feats_h1])
     
     # spatial attention
-    spacial_heads = []
+    ## Average Pooling
+    x1_h1 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_out_h1')(x)
 
-    for i in range(num_heads):
-        # Heads
-        ## Average Pooling
-        x1_h = layers.Lambda(reduce_mean_expand)(x)
+    ## Max Pooling
+    x2_h1 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_out_h1')(x)
 
-        ## Max Pooling
-        x2_h = layers.Lambda(reduce_max_expand)(x)
-
-
-        ## Concatenat both the features
-        feats_h = layers.Concatenate()([x1_h, x2_h])
-        ## Conv layer
-        feats_h = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h)
-        spacial_heads.append(feats_h)
-
-    ## Concatenat all the features
-    feats = layers.Concatenate()(spacial_heads)
+    ## Concatenat both the features
+    feats_h1 = layers.Concatenate()([x1_h1, x2_h1])
     ## Conv layer
-    feats = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats)
-
-    x = layers.Multiply()([x, feats])
+    feats_h1 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h1)
+    x = layers.Multiply()([x, feats_h1])
 
     
     x = layers.GlobalAveragePooling2D(name='avgpool')(x)
