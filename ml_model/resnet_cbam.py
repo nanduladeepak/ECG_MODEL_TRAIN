@@ -30,45 +30,67 @@ def basic_block(x, planes, stride=1, downsample=None, name=None):
 
     return out
 
-def cbam(x, planes):
+def cbam(x, planes, num_heads=4):
     # channel attention
-    ## Shared layers
-    l1_h1 = layers.Dense(planes//2, activation="relu", use_bias=False)
-    l2_h1 = layers.Dense(planes, use_bias=False)
+    channel_heads = []
 
-    ## Global Average Pooling
-    x1_h1 = layers.GlobalAveragePooling2D()(x)
-    x1_h1 = l1_h1(x1_h1)
-    x1_h1 = l2_h1(x1_h1)
+    for i in range(num_heads):
+        # Heads
+        ## Shared layers
+        l1_h = layers.Dense(planes//2, activation="relu", use_bias=False)
+        l2_h = layers.Dense(planes, use_bias=False)
 
-    ## Global Max Pooling
-    x2_h1 = layers.GlobalMaxPooling2D()(x)
-    x2_h1 = l1_h1(x2_h1)
-    x2_h1 = l2_h1(x2_h1)
+        ## Global Average Pooling
+        x1_h = layers.GlobalAveragePooling2D()(x)
+        x1_h = l1_h(x1_h)
+        x1_h = l2_h(x1_h)
 
-    ## Add both the features and pass through sigmoid
-    feats_h1 = layers.Add()([x1_h1, x2_h1])
-    feats_h1 = layers.Activation("sigmoid")(feats_h1)
+        ## Global Max Pooling
+        x2_h = layers.GlobalMaxPooling2D()(x)
+        x2_h = l1_h(x2_h)
+        x2_h = l2_h(x2_h)
 
+        ## Add both the features and pass through sigmoid
+        feats_h = layers.Add()([x1_h, x2_h])
+        feats_h = layers.Activation("sigmoid")(feats_h)
+        channel_heads.append(feats_h)
 
-    x = layers.Multiply()([x, feats_h1])
+     ## Concatenat all the features
+    feats = layers.Concatenate()(channel_heads)
+    ## Conv layer
+    feats = layers.Reshape((1, 1, -1))(feats)
+    feats = layers.Dense(planes, activation="sigmoid")(feats)
+    feats = layers.Reshape((1, 1, planes))(feats)
+
+    x = layers.Multiply()([x, feats])
     
     # spatial attention
-    ## Average Pooling
-    x1_h1 = layers.Lambda(reduce_mean_expand, name='reduce_mean_expand_in_h1')(x)
+    spacial_heads = []
 
-    ## Max Pooling
-    x2_h1 = layers.Lambda(reduce_max_expand, name='reduce_max_expand_in_h1')(x)
+    for i in range(num_heads):
+        # Heads
+        ## Average Pooling
+        x1_h = layers.Lambda(reduce_mean_expand)(x)
+
+        ## Max Pooling
+        x2_h = layers.Lambda(reduce_max_expand)(x)
 
 
-    ## Concatenat both the features
-    feats_h1 = layers.Concatenate()([x1_h1, x2_h1])
+        ## Concatenat both the features
+        feats_h = layers.Concatenate()([x1_h, x2_h])
+        ## Conv layer
+        feats_h = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h)
+        spacial_heads.append(feats_h)
+
+    ## Concatenat all the features
+    feats = layers.Concatenate()(spacial_heads)
     ## Conv layer
-    feats_h1 = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats_h1)
-    x = layers.Multiply()([x, feats_h1])
+    feats = layers.Conv2D(1, kernel_size=7, padding="same", activation="sigmoid")(feats)
+
+    x = layers.Multiply()([x, feats])
     return x
 
-def make_layer(x, planes, blocks, stride=1, name=None):
+def make_layer(x, planes, blocks, stride=1, name=None, num_heads=4):
     downsample = None
     inplanes = x.shape[3]
     if stride != 1 or inplanes != planes:
@@ -82,7 +104,7 @@ def make_layer(x, planes, blocks, stride=1, name=None):
         x = basic_block(x, planes, name=f'{name}.{i}')
 
     
-    x = cbam(x, planes)
+    x = cbam(x, planes, num_heads=num_heads)
 
     return x
 
@@ -101,12 +123,12 @@ def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     x = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name='bn1')(x)
     x = layers.ReLU(name='relu1')(x)
     
-    x = cbam(x, 64)
+    x = cbam(x, 64, num_heads)
 
     x = make_layer(x, 64, blocks_per_layer[0], name='layer1')
-    x = make_layer(x, 128, blocks_per_layer[1], stride=2, name='layer2')
-    x = make_layer(x, 256, blocks_per_layer[2], stride=2, name='layer3')
-    x = make_layer(x, 512, blocks_per_layer[3], stride=2, name='layer4')
+    x = make_layer(x, 128, blocks_per_layer[1], stride=2, name='layer2', num_heads=num_heads)
+    x = make_layer(x, 256, blocks_per_layer[2], stride=2, name='layer3', num_heads=num_heads)
+    x = make_layer(x, 512, blocks_per_layer[3], stride=2, name='layer4', num_heads=num_heads)
     
     x = layers.GlobalAveragePooling2D(name='avgpool')(x)
     
