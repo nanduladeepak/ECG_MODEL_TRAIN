@@ -1,4 +1,4 @@
-from resnet import resnet18, resnet34
+from resnet_cbam import resnet18, resnet34
 from load_data import DataLoader
 import tensorflow as tf
 from tensorflow import keras
@@ -9,7 +9,8 @@ from sklearn.metrics import classification_report, confusion_matrix
 from f1_metric import F1Score
 
 class TrainModel:
-    def __init__(self, batch=32, model_type='resnet18', epoch = 40, poles=5, upperCutoff = 15, att_heads=5, stop_percistance = 30):
+    def __init__(self, batch=32, model_type='resnet18', epoch = 40, poles=5, upperCutoff = 15, att_heads=4, stop_percistance = 30, fft = False):
+        self.fft = fft
         self.stop_percistance = stop_percistance
         self.att_heads = att_heads
         self.classes = ['NORM','MI','STTC','HYP','CD']
@@ -28,7 +29,7 @@ class TrainModel:
                 self.model_type = resnet34
             case _:
                 raise ValueError(f"Unsupported model type: {model_type}")
-        self.data = DataLoader(poles=poles, upperCutoff = upperCutoff)
+        self.data = DataLoader(poles=poles, upperCutoff = upperCutoff, fft = self.fft)
         self.model = None
         self.__load_model()
         self.X_train, self.X_test, self.X_val = self.data.get_flt_in()
@@ -37,29 +38,30 @@ class TrainModel:
         self.history = None
 
     def __load_model(self):
-        inputs = keras.Input(batch_size=self.batch, shape=(24,1000,1))
+        heads = 24 if self.fft else 12
+        inputs = keras.Input(batch_size=self.batch, shape=( heads, 1000, 1))
         outputs = self.model_type(inputs, num_classes=5, num_heads = self.att_heads)
         self.model = keras.Model(inputs, outputs)
 
     def train_model(self):
         callbacks_list = [
                 keras.callbacks.EarlyStopping(
-                    monitor='val_cat_acc',
+                    monitor='val_f1_macro',
                     patience= self.stop_percistance,
                     mode='max',
                     restore_best_weights=True,
                     verbose=1),
-                keras.callbacks.ModelCheckpoint(filepath=self.model_checkpoint_file, monitor='val_cat_acc', save_best_only=True)
+                keras.callbacks.ModelCheckpoint(filepath=self.model_checkpoint_file, monitor='val_f1_macro', save_best_only=True)
             ]
         opt = tf.keras.optimizers.Adam(learning_rate=0.000001)
         self.model.compile(
             optimizer=opt, 
-            loss='categorical_crossentropy', 
+            loss='binary_crossentropy', 
             metrics=[
                 # tf.keras.metrics.BinaryAccuracy(name='bin_acc'),
                 tf.keras.metrics.Precision(name='precision'),
                 tf.keras.metrics.Recall(name='recall'),
-                tf.keras.metrics.CategoricalAccuracy(name='cat_acc'),
+                tf.keras.metrics.BinaryAccuracy(name='b_acc'),
                 F1Score(name='f1_macro')
             ])
         self.history = self.model.fit(self.X_train, self.y_train, epochs=self.epoch, batch_size=self.batch, callbacks=callbacks_list, validation_data=(self.X_val, self.y_val))
