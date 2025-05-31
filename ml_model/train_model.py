@@ -9,11 +9,23 @@ from sklearn.metrics import classification_report, confusion_matrix
 from f1_metric import F1Score
 
 class TrainModel:
-    def __init__(self, batch=32, model_type='resnet18', epoch = 40, poles=5, upperCutoff = 15, att_heads=4, stop_percistance = 30, fft = False):
+    def __init__(self, 
+                 batch=32, 
+                 model_type='resnet18', 
+                 epoch = 40, 
+                 poles=5, 
+                 upperCutoff = 15,
+                 att_heads=4, 
+                 stop_percistance = 30, 
+                 fft = False,
+                 train_custom_cols = False,
+                 custom_cols = ['NORM','MI'],
+                 set_missing_cols = False):
+        
         self.fft = fft
         self.stop_percistance = stop_percistance
         self.att_heads = att_heads
-        self.classes = ['NORM','MI','STTC','HYP','CD']
+        self.classes = custom_cols if train_custom_cols else ['NORM', 'MI', 'STTC', 'HYP', 'CD']
         self.epoch = epoch
         self.batch = batch
         self.base_path = f'./saves/{model_type}/'
@@ -29,7 +41,7 @@ class TrainModel:
                 self.model_type = resnet34
             case _:
                 raise ValueError(f"Unsupported model type: {model_type}")
-        self.data = DataLoader(poles=poles, upperCutoff = upperCutoff, fft = self.fft)
+        self.data = DataLoader(poles= poles, upperCutoff = upperCutoff, fft = self.fft, custom_cols= custom_cols, set_missing_cols= set_missing_cols)
         self.model = None
         self.__load_model()
         self.X_train, self.X_test, self.X_val = self.data.get_flt_in()

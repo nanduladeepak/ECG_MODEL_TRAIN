@@ -59,7 +59,16 @@ def butter_bandpass_filter(data: np.ndarray, lowcut:float=0.5, highcut:float=50.
     return filtered_signal
 
 class DataLoader:
-    def __init__(self, path= './ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/', sampling_rate=100, poles=5, upperCutoff = 15, fft = False):
+    def __init__(
+        self, 
+        path= './ptb-xl-a-large-publicly-available-electrocardiography-dataset-1.0.1/', 
+        sampling_rate=100, 
+        poles=5, 
+        upperCutoff = 15, 
+        fft = False, 
+        custom_cols = ['NORM', 'MI'], 
+        set_missing_cols = False):
+        
         self.fft = fft
         self.poles = poles
         self.upperCutoff = upperCutoff
@@ -71,6 +80,8 @@ class DataLoader:
         self.x_all = None
         self.y_all = None
         self.ecg_df = None
+        self.custom_cols = custom_cols
+        self.set_missing_cols = set_missing_cols
         self.target_columns = ['NORM', 'MI', 'STTC', 'HYP', 'CD']
         self.target_sub_columns = [
                 'sub_NORM',

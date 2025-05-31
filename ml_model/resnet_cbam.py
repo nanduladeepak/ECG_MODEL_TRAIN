@@ -104,7 +104,6 @@ def make_layer(x, planes, blocks, stride=1, name=None, num_heads=4):
         x = basic_block(x, planes, name=f'{name}.{i}')
 
     
-    x = cbam(x, planes, num_heads=num_heads)
 
     return x
 
@@ -119,17 +118,19 @@ def reduce_max_expand(x):
 
 def resnet(x, blocks_per_layer, num_classes=1000, num_heads=5):
     # x = layers.ZeroPadding2D(padding=3, name='conv1_pad')(x)
-    x = layers.Conv2D(filters=64, kernel_size=(1, 5), strides=(1, 5), use_bias=False, kernel_initializer=kaiming_normal, name='conv1')(x)
+    x = layers.Conv2D(filters=256, kernel_size=(1, 40), strides=(1, 10), use_bias=False, kernel_initializer=kaiming_normal, name='conv1')(x)
     x = layers.BatchNormalization(momentum=0.9, epsilon=1e-5, name='bn1')(x)
     x = layers.ReLU(name='relu1')(x)
     
-    x = cbam(x, 64, num_heads)
+    x = cbam(x, 256, num_heads)
 
-    x = make_layer(x, 64, blocks_per_layer[0], name='layer1')
-    x = make_layer(x, 128, blocks_per_layer[1], stride=2, name='layer2', num_heads=num_heads)
-    x = make_layer(x, 256, blocks_per_layer[2], stride=2, name='layer3', num_heads=num_heads)
-    x = make_layer(x, 512, blocks_per_layer[3], stride=2, name='layer4', num_heads=num_heads)
-    
+    x = make_layer(x, 256, blocks_per_layer[0], name='layer1')
+    x = make_layer(x, 512, blocks_per_layer[1],  name='layer2', num_heads=num_heads)
+    x = make_layer(x, 1024, blocks_per_layer[2],  name='layer3', num_heads=num_heads)
+    x = make_layer(x, 2048, blocks_per_layer[3], name='layer4', num_heads=num_heads)
+
+    x = cbam(x, 2048, num_heads=num_heads)
+
     x = layers.GlobalAveragePooling2D(name='avgpool')(x)
     
     initializer = keras.initializers.RandomUniform(-1.0 / math.sqrt(512), 1.0 / math.sqrt(512))
