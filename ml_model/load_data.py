@@ -66,8 +66,7 @@ class DataLoader:
         poles=5, 
         upperCutoff = 15, 
         fft = False, 
-        custom_cols = ['NORM', 'MI'], 
-        set_missing_cols = False):
+        custom_cols = ['NORM', 'MI']):
         
         self.fft = fft
         self.poles = poles
@@ -81,7 +80,6 @@ class DataLoader:
         self.y_all = None
         self.ecg_df = None
         self.custom_cols = custom_cols
-        self.set_missing_cols = set_missing_cols
         self.target_columns = ['NORM', 'MI', 'STTC', 'HYP', 'CD']
         self.target_sub_columns = [
                 'sub_NORM',
@@ -222,6 +220,45 @@ class DataLoader:
         self.y_sub_test = test_df[self.target_sub_columns].values
         self.y_sub_val = val_df[self.target_sub_columns].values
 
+    def _prepare_custom_col_data(self):
+        ecf_df_copy = self.ecg_df.copy()
+
+        primary_data = ecf_df_copy[ecf_df_copy[self.custom_cols].sum(axis=1) > 0]
+
+        ext_cls = list(set(self.target_columns) - set(self.custom_cols))
+
+        secondary_data = ecf_df_copy[ecf_df_copy[ext_cls].sum(axis=1) == 1]
+
+        secondary_y = [0.5] * len(self.custom_cols)
+
+        final_data = [primary_data]
+
+        for cls in ext_cls:
+            final_data.append(secondary_data[secondary_data[cls] == 1].sample(frac=0.1, random_state=42))
+            final_data[-1][self.custom_cols] = secondary_y
+
+        df_shuffled = pd.concat(final_data).sample(frac=1, random_state=42).reset_index(drop=True)
+
+        n = len(df_shuffled)
+        train_end = int(0.6 * n)
+        test_end = train_end + int(0.2 * n)
+
+        train_df = df_shuffled.iloc[:train_end]
+        test_df = df_shuffled.iloc[train_end:test_end]
+        val_df = df_shuffled.iloc[test_end:]
+        
+        
+        self.X_cst_flt_train = butter_bandpass_filter(np.array(train_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
+        self.X_cst_flt_test = butter_bandpass_filter(np.array(test_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
+        self.X_cst_flt_val = butter_bandpass_filter(np.array(val_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
+
+        
+        self.y_cst_train = train_df[self.custom_cols].values
+        self.y_cst_test = test_df[self.custom_cols].values
+        self.y_cst_val = val_df[self.custom_cols].values
+
+        
+
     def fft_signal_all(self):
         print(f'FFT step data 1/3 flt_train')
         self.X_flt_train = fft_signal_data(self.X_flt_train)
@@ -248,6 +285,7 @@ class DataLoader:
         self.__preprocess_raw_data()
         self.__final_df()
         self.__prepare_df_to_train()
+        self._prepare_custom_col_data()
         if self.fft:
             self.fft_signal_all()
 
@@ -262,6 +300,13 @@ class DataLoader:
 
     def get_sub_class_out(self):
         return self.y_sub_train, self.y_sub_test, self.y_sub_val
+
+    def get_cst_in(self):
+        return self.X_cst_flt_train, self.X_cst_flt_test, self.X_cst_flt_val
+
+    def get_cst_out(self):
+        return self.y_cst_train, self.y_cst_test, self.y_cst_val
+        
 
 
 # 'NORM',

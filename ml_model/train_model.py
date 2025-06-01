@@ -19,8 +19,7 @@ class TrainModel:
                  stop_percistance = 30, 
                  fft = False,
                  train_custom_cols = False,
-                 custom_cols = ['NORM','MI'],
-                 set_missing_cols = False):
+                 custom_cols = ['NORM','MI']):
         
         self.fft = fft
         self.stop_percistance = stop_percistance
@@ -41,11 +40,11 @@ class TrainModel:
                 self.model_type = resnet34
             case _:
                 raise ValueError(f"Unsupported model type: {model_type}")
-        self.data = DataLoader(poles= poles, upperCutoff = upperCutoff, fft = self.fft, custom_cols= custom_cols, set_missing_cols= set_missing_cols)
+        self.data = DataLoader(poles= poles, upperCutoff = upperCutoff, fft = self.fft, custom_cols= custom_cols)
         self.model = None
         self.__load_model()
-        self.X_train, self.X_test, self.X_val = self.data.get_flt_in()
-        self.y_train, self.y_test, self.y_val = self.data.get_class_out()
+        self.X_train, self.X_test, self.X_val = self.data.get_cst_in() if train_custom_cols else self.data.get_flt_in()
+        self.y_train, self.y_test, self.y_val = self.data.get_cst_out() if train_custom_cols else self.data.get_class_out()
         self.model_checkpoint = None
         self.history = None
 
