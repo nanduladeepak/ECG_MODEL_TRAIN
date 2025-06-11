@@ -236,7 +236,7 @@ class DataLoader:
         if self.balence_custom_cls:
             secondary_y = [0.5] * len(self.custom_cols)
 
-        final_data = [primary_data]
+        final_data = []
 
         for cls in ext_cls:
             final_data.append(secondary_data[secondary_data[cls] == 1].sample(frac=self.custom_cls_trs, random_state=42))
@@ -246,15 +246,30 @@ class DataLoader:
         df_shuffled = pd.concat(final_data).sample(frac=1, random_state=42).reset_index(drop=True)
 
         n = len(df_shuffled)
+        print(f'extra data len : {n}')
         train_end = int(0.6 * n)
         test_end = train_end + int(0.2 * n)
 
-        train_df = df_shuffled.iloc[:train_end]
-        test_df = df_shuffled.iloc[train_end:test_end]
-        val_df = df_shuffled.iloc[test_end:]
+        train_extra_df = df_shuffled.iloc[:train_end]
+        test_extra_df = df_shuffled.iloc[train_end:test_end]
+        val_extra_df = df_shuffled.iloc[test_end:]
 
-        test_df = test_df[test_df[self.custom_cols].ne(0.5).all(axis=1)]
-        val_df = val_df[val_df[self.custom_cols].ne(0.5).all(axis=1)]
+        n = len(primary_data)
+        print(f'primary data len : {n}')
+        train_end = int(0.6 * n)
+        test_end = train_end + int(0.2 * n)
+        
+        train_primary_df = primary_data.iloc[:train_end]
+        test_primary_df = primary_data.iloc[train_end:test_end]
+        val_primary_df = primary_data.iloc[test_end:]
+
+        train_df = pd.concat([train_extra_df, train_primary_df]).sample(frac=1, random_state=42).reset_index(drop=True)
+        test_df = pd.concat([test_extra_df, test_primary_df]).sample(frac=1, random_state=42).reset_index(drop=True)
+        val_df = pd.concat([val_extra_df, val_primary_df]).sample(frac=1, random_state=42).reset_index(drop=True)
+
+        if self.balence_custom_cls:
+            test_df = test_df[test_df[self.custom_cols].ne(0.5).all(axis=1)]
+            val_df = val_df[val_df[self.custom_cols].ne(0.5).all(axis=1)]
         
         
         self.X_cst_flt_train = butter_bandpass_filter(np.array(train_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
