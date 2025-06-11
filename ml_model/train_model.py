@@ -5,22 +5,27 @@ from tensorflow import keras
 from datetime import datetime
 import pickle
 import os
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import classification_report, multilabel_confusion_matrix
 from f1_metric import F1Score
+import numpy as np
 
 class TrainModel:
     def __init__(self, 
-                 batch=32, 
-                 model_type='resnet18', 
-                 epoch = 40, 
-                 poles=5, 
-                 upperCutoff = 15,
-                 att_heads=4, 
-                 stop_percistance = 30, 
-                 fft = False,
-                 train_custom_cols = False,
-                 custom_cols = ['NORM','MI']):
-        
+                    batch=32, 
+                    model_type='resnet18', 
+                    epoch = 40, 
+                    poles=5, 
+                    upperCutoff = 15,
+                    att_heads=4, 
+                    stop_percistance = 30, 
+                    fft = False,
+                    train_custom_cols = False,
+                    custom_cols = ['NORM','MI'],
+                    custom_cls_trs = 0.2,
+                    balence_custom_cls = False,
+                    threshold=0.5):
+
+        self.threshold=threshold
         self.fft = fft
         self.stop_percistance = stop_percistance
         self.att_heads = att_heads
@@ -40,7 +45,14 @@ class TrainModel:
                 self.model_type = resnet34
             case _:
                 raise ValueError(f"Unsupported model type: {model_type}")
-        self.data = DataLoader(poles= poles, upperCutoff = upperCutoff, fft = self.fft, custom_cols= custom_cols)
+        self.data = DataLoader(
+            poles= poles, 
+            upperCutoff = 
+            upperCutoff, 
+            fft = self.fft, 
+            custom_cols= custom_cols,
+            custom_cls_trs=custom_cls_trs,
+            balence_custom_cls=balence_custom_cls)
         self.model = None
         self.__load_model()
         self.X_train, self.X_test, self.X_val = self.data.get_cst_in() if train_custom_cols else self.data.get_flt_in()
@@ -51,66 +63,67 @@ class TrainModel:
     def __load_model(self):
         heads = 24 if self.fft else 12
         inputs = keras.Input(batch_size=self.batch, shape=( heads, 1000, 1))
-        outputs = self.model_type(inputs, num_classes=5, num_heads = self.att_heads)
+        outputs = self.model_type(inputs, num_classes=len(self.classes), num_heads = self.att_heads)
         self.model = keras.Model(inputs, outputs)
 
     def train_model(self):
         callbacks_list = [
                 keras.callbacks.EarlyStopping(
-                    monitor='val_f1_macro',
+                    monitor='val_b_acc',
                     patience= self.stop_percistance,
                     mode='max',
                     restore_best_weights=True,
                     verbose=1),
-                keras.callbacks.ModelCheckpoint(filepath=self.model_checkpoint_file, monitor='val_f1_macro', save_best_only=True)
+                keras.callbacks.ModelCheckpoint(filepath=self.model_checkpoint_file, monitor='val_b_acc', save_best_only=True)
             ]
         opt = tf.keras.optimizers.Adam(learning_rate=0.000001)
         self.model.compile(
             optimizer=opt, 
             loss='binary_crossentropy', 
             metrics=[
-                # tf.keras.metrics.BinaryAccuracy(name='bin_acc'),
-                tf.keras.metrics.Precision(name='precision'),
-                tf.keras.metrics.Recall(name='recall'),
-                tf.keras.metrics.BinaryAccuracy(name='b_acc'),
-                F1Score(name='f1_macro')
+            tf.keras.metrics.Precision(name='precision'),
+            tf.keras.metrics.Recall(name='recall'),
+            tf.keras.metrics.BinaryAccuracy(name='b_acc'),
+            F1Score(name='f1_macro')
             ])
         self.history = self.model.fit(self.X_train, self.y_train, epochs=self.epoch, batch_size=self.batch, callbacks=callbacks_list, validation_data=(self.X_val, self.y_val))
         self.model_checkpoint = keras.models.load_model(self.model_checkpoint_file)
         # self.save_history()
 
     def test_model(self):
+        # Predict probabilities
         results = self.model.predict(self.X_test)
-        predictions = tf.argmax(results, axis=1).numpy()
-        true_labels = tf.argmax(self.y_test, axis=1).numpy()
 
-        # Calculate precision, recall, f1-score
-        report = classification_report(true_labels, predictions, target_names=self.classes)
+        # Apply threshold to get binary predictions
+        predictions = (results >= self.threshold).astype(int)
+        true_labels = self.y_test.astype(int)  # assuming y_test is already multi-hot
+
+        # Ensure shapes are (n_samples, n_classes)
+        if predictions.ndim == 1:
+            predictions = predictions[:, np.newaxis]
+            true_labels = true_labels[:, np.newaxis]
+
+        # Handle single-class edge case
+        if len(self.classes) == 1:
+            print("Single class detected. Skipping target_names to avoid mismatch.")
+            report = classification_report(true_labels, predictions, zero_division=0)
+        else:
+            report = classification_report(true_labels, predictions, target_names=self.classes, zero_division=0)
+
         print("Classification Report:")
         print(report)
 
-        # Calculate confusion matrix
-        cm = confusion_matrix(true_labels, predictions)
-        print("Confusion Matrix:")
-        print(" " * 10 + "Predicted")
-        print(" " * 8 + " ".join(f"{cls:^8}" for cls in self.classes))
-        print("Actual")
-        for i, row in enumerate(cm):
-            print(f"{self.classes[i]:<8} " + " ".join(f"{val:^8}" for val in row))
+        # Multi-label confusion matrix
+        cm = multilabel_confusion_matrix(true_labels, predictions)
 
-        # Extract true positives, true negatives, false positives, false negatives
-        tp = cm.diagonal()
-        fp = cm.sum(axis=0) - tp
-        fn = cm.sum(axis=1) - tp
-        tn = cm.sum() - (fp + fn + tp)
-
-        print("\nMetrics per class:")
+        print("Confusion Matrices per class:")
         for i, cls in enumerate(self.classes):
-            print(f"Class: {cls}")
-            print(f"  True Positives: {tp[i]}")
-            print(f"  True Negatives: {tn[i]}")
-            print(f"  False Positives: {fp[i]}")
-            print(f"  False Negatives: {fn[i]}")
+            tn, fp, fn, tp = cm[i].ravel()
+            print(f"\nClass: {cls}")
+            print(f"  True Positives: {tp}")
+            print(f"  True Negatives: {tn}")
+            print(f"  False Positives: {fp}")
+            print(f"  False Negatives: {fn}")
 
     def save_history(self):
         with open(self.model_train_hist , 'wb') as f:

@@ -66,8 +66,12 @@ class DataLoader:
         poles=5, 
         upperCutoff = 15, 
         fft = False, 
+        custom_cls_trs = 0.2,
+        balence_custom_cls = False,
         custom_cols = ['NORM', 'MI']):
-        
+
+        self.custom_cls_trs = custom_cls_trs
+        self.balence_custom_cls = balence_custom_cls
         self.fft = fft
         self.poles = poles
         self.upperCutoff = upperCutoff
@@ -229,13 +233,15 @@ class DataLoader:
 
         secondary_data = ecf_df_copy[ecf_df_copy[ext_cls].sum(axis=1) == 1]
 
-        secondary_y = [0.5] * len(self.custom_cols)
+        if self.balence_custom_cls:
+            secondary_y = [0.5] * len(self.custom_cols)
 
         final_data = [primary_data]
 
         for cls in ext_cls:
-            final_data.append(secondary_data[secondary_data[cls] == 1].sample(frac=0.1, random_state=42))
-            final_data[-1][self.custom_cols] = secondary_y
+            final_data.append(secondary_data[secondary_data[cls] == 1].sample(frac=self.custom_cls_trs, random_state=42))
+            if self.balence_custom_cls:
+                final_data[-1][self.custom_cols] = secondary_y
 
         df_shuffled = pd.concat(final_data).sample(frac=1, random_state=42).reset_index(drop=True)
 
@@ -246,6 +252,9 @@ class DataLoader:
         train_df = df_shuffled.iloc[:train_end]
         test_df = df_shuffled.iloc[train_end:test_end]
         val_df = df_shuffled.iloc[test_end:]
+
+        test_df = test_df[test_df[self.custom_cols].ne(0.5).all(axis=1)]
+        val_df = val_df[val_df[self.custom_cols].ne(0.5).all(axis=1)]
         
         
         self.X_cst_flt_train = butter_bandpass_filter(np.array(train_df['ecg_heads'].tolist()), lowcut = 1, highcut = self.upperCutoff, fs = self.sampling_rate, order = self.poles)
@@ -293,18 +302,23 @@ class DataLoader:
     #     return self.X_train, self.X_test, self.X_val
 
     def get_flt_in(self):
+        print(f'shape train: {self.X_flt_train.shape} test: {self.X_flt_test.shape} val: {self.X_flt_val.shape}')
         return self.X_flt_train, self.X_flt_test, self.X_flt_val
 
     def get_class_out(self):
+        print(f'shape train: {self.y_train.shape} test: {self.y_test.shape} val: {self.y_val.shape}')
         return self.y_train, self.y_test, self.y_val
 
     def get_sub_class_out(self):
+        print(f'shape train: {self.y_sub_train.shape} test: {self.y_sub_test.shape} val: {self.y_sub_val.shape}')
         return self.y_sub_train, self.y_sub_test, self.y_sub_val
 
     def get_cst_in(self):
+        print(f'shape train: {self.X_cst_flt_train.shape} test: {self.X_cst_flt_test.shape} val: {self.X_cst_flt_val.shape}')
         return self.X_cst_flt_train, self.X_cst_flt_test, self.X_cst_flt_val
 
     def get_cst_out(self):
+        print(f'shape train: {self.y_cst_train.shape} test: {self.y_cst_test.shape} val: {self.y_cst_val.shape}')
         return self.y_cst_train, self.y_cst_test, self.y_cst_val
         
 
